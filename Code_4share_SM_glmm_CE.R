@@ -1,3 +1,11 @@
+#################
+
+# This code allows to perform a glmm per electrode/voxel
+# predicting CE (conscious experience) vs NE (No experience), or vs 
+# CEWR (conscious experience without recall) using the
+# power spectral density of the EEG of two frequency bands in different time frames
+
+## Libraries
 library("nlme")
 library("Matrix")
 library("lme4")
@@ -18,7 +26,7 @@ rm(list=ls())
 # Paths and settings
 
 csvpath <- '' # <---- add your .csv path here !
-csvfile <- paste(csvpath,'Fig2_Fig3.xlsx', sep='') # <---- add your .csv name here !
+csvfile <- paste(csvpath,'Data.xlsx', sep='') # <---- add your .csv name here !
 
 resultpath <- paste('', sep='') # <---- add your result path here !
 dir.create(resultpath,showWarnings = FALSE,recursive = TRUE)
@@ -26,9 +34,12 @@ dir.create(resultpath,showWarnings = FALSE,recursive = TRUE)
 yourresultfilename <- ''; # <---- add your result filename here !
 
 # settings
-freq1 <- 'Delta1'
-freq2 <- 'beta1'
-nchan <- 2447
+freq1 <- 'Delta1' # <- insert here name of the first frequency
+freq2 <- 'beta1' # <- insert here name of the second frequency
+
+nchan <- 2447 # <- insert here the total number of channels or voxels
+
+## Dependent value
 
 # comp1 = 1: CEWR, comp1 = 0: NE, comp1 = 2: CE
 # For fig.2: comp1 <- 2 and comp2 <- 0;
@@ -37,8 +48,10 @@ nchan <- 2447
 comp1 <- 2  # <---- change according to the model you want to run !
 comp2 <- 0  # <---- change according to the model you want to run !
 
-var2predict <- 'CE'
+# Variable you want to predict
+var2predict <- 'CE' # CE: conscious experience
 
+# extracting the str for each value
 if (comp1 == 1){
   comp1_str = 'CEWR'
 }else if (comp1 == 2){
@@ -53,8 +66,9 @@ allcoltype <- ifelse(allcol=='IDsub'| allcol=='duration'| allcol=='timeBeg','tex
 data <- read_excel(csvfile1,col_types = allcoltype)
 data <- data[c(which(data$P_H==1 & data$First_Unanimity_Episode==1)),]
 
-#########################
-namescol <- colnames(data[,-(1:4)])
+## Calculate the log for each frequency band
+
+namescol <- colnames(data[,-(1:4)]) # <- change here in order to exclude columns that don't need to be log
 namescol <- namescol[str_detect(namescol,'_sec_')]
 
 # calculate log
@@ -78,19 +92,21 @@ dataCE$CE <- as.factor(dataCE$CE)
 dataCE$prov_spont <- as.factor(dataCE$prov_spont)
 
 
-# detect existing timeframes
+# detect existing timeframes: change here according to your frequency bands name
 timeframelist <- namescol[str_detect(namescol,paste('Delta1_',sep='')) & str_detect(namescol,'log')]
 
 # timeframe loop
 for (t in timeframelist){
   
-  # extracting frequency name
+  # extracting frequency names for the current timeframe: change here according to your frequency bands name
   t_freq1 <- paste(freq1,substr(t,nchar(freq1)+1,nchar(t)), sep = '')
   t_freq2 <- paste(freq2,substr(t,nchar(freq1)+1,nchar(t)), sep = '')
   timeframe <- substr(t,7,nchar(t))
   
   # setting formula
   formulastr <- paste(var2predict, '~ ', t_freq1,'+', t_freq2, '+ (1|IDsub) + (1|prov_spont)',sep='')
+  
+  # initializing for results
   main_stat_list = c(freq1,freq2)
   
   beta_val <- data.frame(matrix(ncol = length(main_stat_list), nrow = nchan))
@@ -121,6 +137,7 @@ for (t in timeframelist){
   # create a unique table
   stat_df <- cbind(beta_val,z_val,beta_p_val)
   
+  # save in R.data, change the format the function to save if you want to save in .csv
   save(stat_df, file = paste(resultpath, yourresultfilename, '_', timeframe,'_.RData', sep =''))
   rm(beta_val, z_val, beta_p_val, stat_df, t_freq1, t_freq2)
   
